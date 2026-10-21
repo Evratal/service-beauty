@@ -689,3 +689,14 @@ a.link {
 .schedule-row input[type='time'] {
   width: auto;
 }
+
+/* Плашка о демонстрационных данных: видна на любой странице, под контентом. */
+.demo-note {
+  max-width: 1120px;
+  margin: 24px auto 32px;
+  padding: 0 20px;
+  color: var(--color-text-dim, rgba(255, 255, 255, 0.55));
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
