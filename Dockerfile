@@ -18,6 +18,9 @@ COPY package.json ./
 COPY src ./src
 COPY public ./public
 COPY migrations ./migrations
+# Скрипты миграций и наполнения базы нужны при старте: на сервере никто не
+# запускает их руками, а без seed приложение отвечает «Студия не настроена».
+COPY scripts ./scripts
 
 # Каталог под файл базы. На сервере к нему подключается том (volume).
 RUN mkdir -p /app/data
@@ -28,5 +31,8 @@ ENV DB_FILE=/app/data/app.db
 
 EXPOSE 3000
 
-# Миграции применяются самим приложением при запуске (src/migrations.js).
-CMD ["node", "src/server.js"]
+# Миграции применяются самим приложением при запуске (src/migrations.js),
+# а seed нужен для первой загрузки: без него на сервере пустая база и
+# любой запрос к каталогу отвечает «Студия не настроена».
+# Повторный запуск seed безопасен — при непустой базе он выходит сразу.
+CMD ["sh", "-c", "node scripts/migrate.js && node scripts/seed.js && node src/server.js"]

@@ -20,11 +20,14 @@
 | NODE_ENV | production |
 | PORT | 3000 |
 | DB_FILE | /app/data/app.db |
-| SESSION_SECRET | (сгенерируй случайную строку >= 40 символов) |
-| PUBLIC_BASE_URL | https://nogotochki.portfolio-evratal-1.ru |
 | YANDEX_CLIENT_ID | <client_id> |
 | YANDEX_CLIENT_SECRET | <client_secret> |
+| YANDEX_REDIRECT_URI | https://nogotochki.portfolio-evratal-1.ru/api/auth/yandex/callback |
 | TRUST_PROXY | 1 |
+
+> Три переменные `YANDEX_*` обязательны именно вместе: без `YANDEX_REDIRECT_URI`
+> сервис считает вход через «Яндекс» выключенным и прячет кнопку.
+> `SESSION_SECRET` и `PUBLIC_BASE_URL` в этом проекте не используются.
 
 ## 4) Постоянное хранилище (Persistent Storage)
 Resources → Application → [твоя аппликация] → Storages → Add
@@ -32,7 +35,9 @@ Resources → Application → [твоя аппликация] → Storages → A
 - Mount Path: /app/data
 - Type: Volume
 
-БД будет храниться вне контейнера. При первом старте миграции применятся (в проекте есть src/migrations.js).
+БД будет храниться вне контейнера. При старте контейнер сам выполняет
+`migrate → seed → start`: миграции применяются всегда, демо-данные
+подсыпаются только если база пустая (повторный запуск seed ничего не ломает).
 
 ## 5) Домен и HTTPS
 Application → Domains → Add
