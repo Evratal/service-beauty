@@ -768,7 +768,7 @@ function loginHtml() {
         <p class="muted tiny">Быстрее всего — войти через «Яндекс»: отдельный пароль не нужен.</p>
         ${yandexButtonHtml()}
       </details>
-      <p class="muted tiny">Демо-данные: anna@example.com / oleg@example.com, пароль Demo2026!</p>
+      <p class="muted tiny">Демо-данные: irina@example.com / olga@example.com, пароль Demo2026!</p>
     </main>`;
 }
 
