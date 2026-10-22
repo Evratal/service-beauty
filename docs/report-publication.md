@@ -67,10 +67,11 @@
 |---|---|
 | Панель управления | Coolify 4.4.6, http://159.194.228.197:8000 |
 | Приложение | `nogotochki`, uuid `sidr1ae3wxiti5uze890rhqc`, проект Service_1, окружение production |
-| Репозиторий | https://github.com/Evratal/Service_1.git, ветка `main` |
+| Репозиторий | https://github.com/Evratal/service-beauty.git, ветка `main` |
 | Сборка | Dockerfile (build pack `dockerfile`), образ `node:24-slim` |
 | Хранение данных | Persistent volume `/app/data` → том `sidr1ae3wxiti5uze890rhqc-nogotochki-data` |
 | HTTPS | Let's Encrypt через Traefik, Force HTTPS включён |
 | Переменные окружения | `NODE_ENV=production`, `PORT=3000`, `DB_FILE=/app/data/app.db`, `TRUST_PROXY=1`, `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET`, `YANDEX_REDIRECT_URI` |
 | Автодеплой | включён: push в ветку `main` запускает сборку |
+| История Git | репозиторий создан заново под проект: в истории нет файла с секретами (проверено: `yandex-creds.txt` в репозитории отсутствует) |
 | Первый запуск | контейнер сам выполняет `migrate → seed → start`, демо-данные появляются автоматически |

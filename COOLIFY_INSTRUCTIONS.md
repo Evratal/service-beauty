@@ -1,14 +1,14 @@
-﻿# Пошаговая инструкция для Этапа 5 (Coolify)
+# Пошаговая инструкция для Этапа 5 (Coolify)
 
 ## 1) Репозиторий
-- Репозиторий: https://github.com/Evratal/Service_1.git
+- Репозиторий: https://github.com/Evratal/service-beauty.git
 - Ветка: main
 - Корень проекта с Dockerfile
 
 ## 2) Создание Application в Coolify
 В Coolify → Resources → New → Application → From Git Repository
 - Source: GitHub
-- Repository: Evratal/Service_1
+- Repository: Evratal/service-beauty
 - Branch: main
 - Build Pack/Dockerfile: использовать Dockerfile из корня
 
