@@ -76,8 +76,8 @@ export function listAppointments(db, { userId, masterId, isAdmin, scope = 'mine'
   const conditions = [];
   const params = [];
 
-  if (isAdmin || scope === 'all') {
-    // администратор видит всё
+  if (scope === 'all' || (isAdmin && scope === 'master')) {
+    // вся студия: полный список доступен только администратору (проверено в маршруте)
   } else if (scope === 'master') {
     if (!masterId) return [];
     conditions.push('a.master_id = ?');

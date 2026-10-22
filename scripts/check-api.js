@@ -442,6 +442,9 @@ async function main() {
     // олег 15:00 (обычная) и анна 15:00 (наложенная администратором).
     check('администратор видит все записи', allAsAdmin.status === 200 && allAsAdmin.json.appointments.length === 4, `записей ${allAsAdmin.json.appointments?.length}`);
 
+    const mineAsAdmin = await api('GET', '/api/appointments?scope=mine', { token: adminToken });
+    check('scope=mine у администратора — только его собственные записи', mineAsAdmin.status === 200 && mineAsAdmin.json.appointments.length === 0, `записей ${mineAsAdmin.json.appointments?.length}`);
+
     const unknownId = await api('GET', '/api/appointments/999999', { token: adminToken });
     check('несуществующая запись даёт 404', unknownId.status === 404);
 

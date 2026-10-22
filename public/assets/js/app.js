@@ -171,12 +171,11 @@ function headerHtml() {
   return `
     <header class="header">
       <div class="header__inner">
-        <a class="brand link" href="#/">TOP&nbsp;BRO</a>
+        <a class="brand link" href="#/">Ноготочки</a>
         <nav class="nav">
           <a class="link" href="#/">Главная</a>
           <a class="link" href="#/booking">Запись</a>
-          <a class="link" href="#/mine">Мои записи</a>
-          ${isAdmin ? '<a class="link" href="#/admin">Админ</a>' : ''}
+          ${isAdmin ? '<a class="link" href="#/admin">Админ</a>' : '<a class="link" href="#/mine">Мои записи</a>'}
         </nav>
         <div class="header__auth">
           ${

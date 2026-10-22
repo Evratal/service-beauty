@@ -238,6 +238,7 @@ async function renderAppointments(app, panel) {
     <div class="admin-toolbar">
       <button class="btn btn--primary btn--sm" data-action="admin-new-appointment">Записать клиента</button>
       <button class="btn btn--ghost btn--sm" data-action="admin-reload">Обновить</button>
+      <span class="muted small">Всего записей: ${appointments.length} · сначала новые</span>
     </div>
 
     <div id="admin-create-box" hidden></div>
@@ -251,7 +252,10 @@ async function renderAppointments(app, panel) {
 }
 
 function appointmentCards(appointments) {
-  const sorted = [...appointments].sort((a, b) => (a.startsAt < b.startsAt ? -1 : 1));
+  const sorted = [...appointments].sort((a, b) => {
+    const byCreated = String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''));
+    return byCreated !== 0 ? byCreated : b.id - a.id;
+  });
   const tz = state.salon?.timezone;
 
   if (sorted.length === 0) return '<p class="muted">Записей пока нет.</p>';
