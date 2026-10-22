@@ -46,6 +46,13 @@ function nextMonday(hour, minute = 0) {
   return zonedToUtc({ ...today, day: today.day + daysAhead, hour, minute }, 'Europe/Moscow');
 }
 
+function nextSaturday(hour, minute = 0) {
+  const now = new Date();
+  const today = utcToZonedParts(now, 'Europe/Moscow');
+  const daysAhead = ((6 - today.weekday + 7) % 7) || 7;
+  return zonedToUtc({ ...today, day: today.day + daysAhead, hour, minute }, 'Europe/Moscow');
+}
+
 function nextSunday(hour, minute = 0) {
   const now = new Date();
   const today = utcToZonedParts(now, 'Europe/Moscow');
@@ -803,6 +810,53 @@ async function main() {
       body: { schedule: [{ weekday: 6, startTime: '18:00', endTime: '11:00', isWorking: true }] }
     });
     check('график с концом раньше начала отклонён', brokenSchedule.status === 400, `статус ${brokenSchedule.status}`);
+
+    // Блокировки времени: админ закрывает интервал, слоты исчезают, клиенту
+    // действие недоступно, а поверх уже оформленной записи блокировать нельзя.
+    await api('PATCH', `/api/admin/masters/${masterId2}`, { token: adminToken, body: { isActive: true } });
+
+    const saturday = nextSaturday(10);
+    const saturdayKey = utcToZonedParts(saturday, 'Europe/Moscow').date;
+    const slotsUrl = `/api/masters/${masterId2}/slots?date=${saturdayKey}&serviceIds=${service90}`;
+    const slotsBefore = await api('GET', slotsUrl);
+    check('у мастера есть слоты в день проверки блокировки', slotsBefore.status === 200 && slotsBefore.json.slots.length > 0);
+
+    const block = await api('POST', `/api/admin/masters/${masterId2}/blocks`, {
+      token: adminToken,
+      body: { startsAt: formatUtc(nextSaturday(12)), endsAt: formatUtc(nextSaturday(13)), reason: 'Санитарный час' }
+    });
+    check('админ блокирует время мастера', block.status === 201 && block.json.block?.id > 0, `статус ${block.status}`);
+
+    const slotsAfter = await api('GET', slotsUrl);
+    check(
+      'заблокированный интервал пропал из слотов',
+      !slotsAfter.json.slots.some((slot) => slot.time === '12:00') &&
+        slotsAfter.json.slots.length < slotsBefore.json.slots.length
+    );
+
+    const asClient = await api('POST', `/api/admin/masters/${masterId2}/blocks`, {
+      token: annaToken,
+      body: { startsAt: formatUtc(nextSaturday(14)), endsAt: formatUtc(nextSaturday(15)) }
+    });
+    check('клиент не может блокировать время', asClient.status === 403, `статус ${asClient.status}`);
+
+    const booked = await api('POST', '/api/appointments', {
+      token: annaToken,
+      body: { masterId: masterId2, serviceIds: [service90], startsAt: formatUtc(nextSaturday(15)) }
+    });
+    check('запись для проверки конфликта создана', booked.status === 201, `статус ${booked.status}`);
+
+    const overBooking = await api('POST', `/api/admin/masters/${masterId2}/blocks`, {
+      token: adminToken,
+      body: { startsAt: formatUtc(nextSaturday(15)), endsAt: formatUtc(nextSaturday(16)) }
+    });
+    check('блокировка поверх записи клиента отклонена', overBooking.status === 409, `статус ${overBooking.status}`);
+
+    const removed = await api('DELETE', `/api/admin/blocks/${block.json.block.id}`, { token: adminToken });
+    check('блокировка снята', removed.status === 200, `статус ${removed.status}`);
+
+    const slotsBack = await api('GET', slotsUrl);
+    check('после снятия блокировки слот 12:00 снова свободен', slotsBack.json.slots.some((slot) => slot.time === '12:00'));
   }
 
   // ------------------------------------------------------------------ выход и заголовки

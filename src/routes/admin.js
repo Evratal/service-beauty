@@ -7,17 +7,19 @@
  * (лендинг и кабинет) их менять не может.
  */
 
-import { badRequest, notFound } from '../errors.js';
+import { badRequest, conflict, notFound } from '../errors.js';
 import { requireRole } from '../auth.js';
 import { validate, cleanText } from '../validate.js';
-import { parseHhMm } from '../time.js';
+import { formatUtc, isValidDateString, parseHhMm, zonedToUtc } from '../time.js';
 import { hashPassword } from '../security.js';
 import { pathId } from './helpers.js';
 import { publicService, publicSchedule } from './catalog.js';
 import {
   createMaster,
   createService,
+  deleteTimeBlock,
   getMaster,
+  getSalon,
   getService,
   listAdminMasters,
   listAdminServices,
@@ -26,6 +28,7 @@ import {
   updateMaster,
   updateService
 } from '../repo/catalog.js';
+import { createTimeBlock } from '../repo/appointments.js';
 import { createUser, listClientsForAdmin, updateUserProfile } from '../repo/users.js';
 
 const AUTH = { auth: true };
@@ -293,7 +296,125 @@ export function registerAdminRoutes(router) {
     AUTH
   );
 
+  /* ------------------------------------------------ блокировки времени */
+
+  router.post(
+    '/api/admin/masters/:id/blocks',
+    asAdmin(async ({ db, params, body, session }) => {
+      const id = pathId(params, 'id');
+      if (id === null) throw badRequest('Некорректный идентификатор мастера.');
+
+      const master = getMaster(db, id);
+      if (!master) throw notFound('Мастер не найден.');
+
+      const salon = getSalon(db);
+      if (!salon) throw notFound('Студия не настроена. Выполните npm run seed.');
+
+      const data = validate(body, BLOCK_RULES);
+
+      const start = toUtcMoment(data.startsAt, salon.timezone);
+      const end = toUtcMoment(data.endsAt, salon.timezone);
+      if (start === null || end === null) {
+        throw badRequest('Время блокировки — в формате 2026-10-24T14:00 (местное время студии).');
+      }
+      if (end.getTime() <= start.getTime()) {
+        throw badRequest('Конец блокировки должен быть позже начала.');
+      }
+      if (start.getTime() <= Date.now()) {
+        throw badRequest('Нельзя заблокировать время в прошлом.');
+      }
+
+      // Блокировка не должна «съесть» уже оформленную запись: слот занят
+      // клиентом, и молча закрыть его нельзя.
+      const busy = db
+        .prepare(
+          `SELECT id FROM appointments
+            WHERE master_id = ? AND status = 'booked'
+              AND starts_at < ? AND ends_at > ?
+            LIMIT 1`
+        )
+        .get(id, formatUtc(end), formatUtc(start));
+      if (busy) {
+        throw conflict(
+          'block_conflict',
+          `На это время у мастера уже есть запись №${busy.id}. Сначала перенесите или отмените её.`
+        );
+      }
+
+      const block = createTimeBlock(db, {
+        masterId: id,
+        startsAtIso: formatUtc(start),
+        endsAtIso: formatUtc(end),
+        reason: cleanText(data.reason ?? null),
+        createdBy: session.user.id
+      });
+
+      return { status: 201, payload: { block: publicBlock(block), master: adminMaster(getMaster(db, id)) } };
+    }),
+    AUTH
+  );
+
+  router.delete(
+    '/api/admin/blocks/:id',
+    asAdmin(async ({ db, params }) => {
+      const id = pathId(params, 'id');
+      if (id === null) throw badRequest('Некорректный идентификатор блокировки.');
+
+      if (deleteTimeBlock(db, id) === 0) throw notFound('Блокировка не найдена.');
+
+      return { payload: { deletedId: id } };
+    }),
+    AUTH
+  );
+
   return router;
+}
+
+const BLOCK_RULES = {
+  startsAt: { type: 'string', required: true, max: 32 },
+  endsAt: { type: 'string', required: true, max: 32 },
+  reason: { type: 'string', required: false, max: 120, nullable: true }
+};
+
+/**
+ * Момент времени из строки блокировки.
+ *
+ * Принимает местное время студии без зоны (`2026-10-24T14:00` — так его
+ * отдаёт поле datetime-local) и полный ISO с зоной (`...T11:00:00Z`).
+ * Возвращает Date или null, если строку разобрать нельзя.
+ */
+function toUtcMoment(text, timezone) {
+  const trimmed = String(text).trim();
+
+  if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(trimmed)) {
+    const moment = new Date(trimmed);
+    return Number.isNaN(moment.getTime()) ? null : moment;
+  }
+
+  const parts = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?$/.exec(trimmed);
+  if (!parts) return null;
+
+  const local = {
+    year: Number(parts[1]),
+    month: Number(parts[2]),
+    day: Number(parts[3]),
+    hour: Number(parts[4]),
+    minute: Number(parts[5])
+  };
+  if (!isValidDateString(`${parts[1]}-${parts[2]}-${parts[3]}`)) return null;
+  if (local.hour > 23 || local.minute > 59) return null;
+
+  return zonedToUtc(local, timezone);
+}
+
+function publicBlock(block) {
+  return {
+    id: block.id,
+    masterId: block.master_id,
+    startsAt: block.starts_at,
+    endsAt: block.ends_at,
+    reason: block.reason ?? null
+  };
 }
 
 function adminService(service) {
@@ -317,6 +438,7 @@ function adminMaster(master) {
     bio: master.bio ?? null,
     isActive: master.is_active === 1,
     services: (master.services ?? []).map(publicService),
-    schedule: (master.schedule ?? []).map(publicSchedule)
+    schedule: (master.schedule ?? []).map(publicSchedule),
+    blocks: (master.blocks ?? []).map(publicBlock)
   };
 }

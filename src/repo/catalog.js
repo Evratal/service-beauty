@@ -86,7 +86,28 @@ export function getMaster(db, id) {
     )
     .get(id);
   if (!master) return null;
-  return { ...master, services: servicesOfMaster(db, id), schedule: getSchedule(db, id) };
+  return {
+    ...master,
+    services: servicesOfMaster(db, id),
+    schedule: getSchedule(db, id),
+    blocks: listMasterBlocks(db, id)
+  };
+}
+
+/**
+ * Разовые блокировки времени мастера (таблица time_blocks): санитарный час,
+ * отпуск, личное время на конкретную дату. Повторяющиеся блокировки живут
+ * в schedule_blocks и в этот список не попадают.
+ */
+export function listMasterBlocks(db, masterId) {
+  return db
+    .prepare('SELECT * FROM time_blocks WHERE master_id = ? ORDER BY starts_at')
+    .all(masterId);
+}
+
+/** Удаляет разовую блокировку. Возвращает число удалённых строк. */
+export function deleteTimeBlock(db, id) {
+  return db.prepare('DELETE FROM time_blocks WHERE id = ?').run(id).changes;
 }
 
 export function servicesOfMaster(db, masterId) {
@@ -177,7 +198,8 @@ export function listAdminMasters(db) {
   return masters.map((master) => ({
     ...master,
     services: servicesOfMaster(db, master.id),
-    schedule: getSchedule(db, master.id)
+    schedule: getSchedule(db, master.id),
+    blocks: listMasterBlocks(db, master.id)
   }));
 }
 

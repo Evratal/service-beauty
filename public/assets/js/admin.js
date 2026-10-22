@@ -828,6 +828,37 @@ async function renderMasters(app, panel) {
       }
     });
   });
+
+  panel.querySelectorAll('[data-role="admin-block-form"]').forEach((blockForm) => {
+    blockForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const id = Number(blockForm.dataset.id);
+      const body = Object.fromEntries(new FormData(blockForm).entries());
+      const result = await api('POST', `/api/admin/masters/${id}/blocks`, {
+        startsAt: body.startsAt,
+        endsAt: body.endsAt,
+        reason: body.reason ? body.reason : null
+      });
+      if (result.json?.block?.id) {
+        showToast('Время заблокировано.', 'success');
+        renderPanel(app);
+      } else {
+        showToast(result.json?.error?.message ?? 'Не удалось заблокировать время.');
+      }
+    });
+  });
+
+  panel.querySelectorAll('[data-action="admin-block-delete"]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const result = await api('DELETE', `/api/admin/blocks/${button.dataset.id}`);
+      if (result.json?.deletedId) {
+        showToast('Блокировка снята.', 'success');
+        renderPanel(app);
+      } else {
+        showToast(result.json?.error?.message ?? 'Не удалось снять блокировку.');
+      }
+    });
+  });
 }
 
 function masterCards(masters) {
@@ -884,9 +915,39 @@ function masterCards(masters) {
               <button class="btn btn--primary btn--sm" type="submit">Сохранить график</button>
             </form>
           </details>
+
+          <details class="admin-details">
+            <summary>Блокировки времени</summary>
+            <form data-role="admin-block-form" data-id="${master.id}" class="admin-form">
+              <div class="admin-form__row">
+                <label class="field">Начало<input class="input" name="startsAt" type="datetime-local" required /></label>
+                <label class="field">Конец<input class="input" name="endsAt" type="datetime-local" required /></label>
+              </div>
+              <label class="field">Причина<input class="input" name="reason" maxlength="120" placeholder="Обед, санитарный час, отпуск" /></label>
+              <button class="btn btn--primary btn--sm" type="submit">Заблокировать время</button>
+            </form>
+            ${blockRows(master.blocks, tz)}
+          </details>
         </div>`;
     })
     .join('');
+}
+
+/* Список разовых блокировок мастера с кнопкой снятия. */
+function blockRows(blocks, tz) {
+  if (!blocks || blocks.length === 0) {
+    return '<p class="muted small">Разовых блокировок нет.</p>';
+  }
+
+  return `<ul class="admin-list admin-blocks">${blocks
+    .map(
+      (block) => `
+        <li class="summary__row">
+          <span class="small">${esc(inZone(block.startsAt, tz, 'full'))} — ${esc(inZone(block.endsAt, tz, 'time'))}${block.reason ? ' · ' + esc(block.reason) : ''}</span>
+          <button class="btn btn--ghost btn--sm" type="button" data-action="admin-block-delete" data-id="${block.id}">Снять</button>
+        </li>`
+    )
+    .join('')}</ul>`;
 }
 
 /* Экспорт для маршрутизатора app.js. */

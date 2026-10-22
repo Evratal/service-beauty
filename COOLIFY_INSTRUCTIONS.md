@@ -20,8 +20,8 @@
 | NODE_ENV | production |
 | PORT | 3000 |
 | DB_FILE | /app/data/app.db |
-| YANDEX_CLIENT_ID | <client_id> |
-| YANDEX_CLIENT_SECRET | <client_secret> |
+| YANDEX_CLIENT_ID | <client_id из кабинета oauth.yandex.ru> |
+| YANDEX_CLIENT_SECRET | <секрет из кабинета oauth.yandex.ru> |
 | YANDEX_REDIRECT_URI | https://nogotochki.portfolio-evratal-1.ru/api/auth/yandex/callback |
 | TRUST_PROXY | 1 |
 
